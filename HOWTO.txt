@@ -1,0 +1,3 @@
+Repository settings: Service Hooks
+Use a webhook:
+https://help.github.com/articles/post-receive-hooks
