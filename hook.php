@@ -1,5 +1,5 @@
 <?php
-  GIT_RO="/home/nickie/Projects/release/test";
+  $GIT_RO="/home/nickie/Projects/release/test";
   if ($_POST['payload'] && $_POST['magic'] == "42f17bad") {
     error_reporting(0);
     try {
