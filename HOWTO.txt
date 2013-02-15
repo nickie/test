@@ -2,4 +2,6 @@ Repository settings: Service Hooks
 Use a webhook:
 https://help.github.com/articles/post-receive-hooks
 
-give permissions to www-data.
+Have a read-only git clone where mentioned in the hook,
+give permissions to www-data,
+update the deploy target in the Makefile.
