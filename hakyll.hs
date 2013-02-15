@@ -2,7 +2,15 @@
 import Data.Monoid ((<>), mconcat)
 import Hakyll
 
-main = hakyll $ do
+conf = defaultConfiguration {
+         destinationDirectory = "/home/nickie/www/tmp/testpub"
+       }
+
+main = hakyllWith conf $ do
+  -- Copy the hook
+  match "hook.php" $ do
+    route   idRoute
+    compile copyFileCompiler
   -- Read templates
   match "Templates/*" $ do
     compile templateCompiler
