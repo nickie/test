@@ -18,4 +18,5 @@
     exit("This should only be used as a hook for github/gitlab.");
   }
   shell_exec("cd $GIT_RO && git reset --hard HEAD && git pull && make hook");
+  exit("Done.")
 ?>
