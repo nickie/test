@@ -2,6 +2,11 @@
 import Data.Monoid ((<>), mconcat)
 import Hakyll
 
+ctxt :: Context String
+ctxt =
+  modificationTimeField "date" "%B %e, %Y, %H:%M" <>
+  defaultContext
+    
 main = hakyll $ do
   -- Copy the hook
   match "hook.php" $ do
@@ -28,5 +33,6 @@ main = hakyll $ do
       let bib = Item "references.bib" . Biblio $ 
                 concatMap ((\(Biblio refs) -> refs) . itemBody) bibs
       pandocCompiler
+        >>= loadAndApplyTemplate "Templates/default.html" ctxt      
         >>= readPandocBiblio defaultHakyllReaderOptions (Just csl) bib
         >>= return . writePandoc
