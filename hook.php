@@ -14,7 +14,7 @@
       exit("I only care about the master branch!"); 
     }
   }
-  elseif (!($_POST['force'] && $_POST['magic'] == $GIT_MAGIC)) {
+  elseif (!isset($_GET['force'])) {
     exit("This should only be used as a hook for github/gitlab.");
   }
   shell_exec("cd $GIT_RO && git reset --hard HEAD && git pull && make hook");
