@@ -2,11 +2,7 @@
 import Data.Monoid ((<>), mconcat)
 import Hakyll
 
-conf = defaultConfiguration {
-         destinationDirectory = "/home/nickie/www/tmp/testpub"
-       }
-
-main = hakyllWith conf $ do
+main = hakyll $ do
   -- Copy the hook
   match "hook.php" $ do
     route   idRoute
