@@ -14,7 +14,7 @@ preview: hakyll
 	./hakyll preview
 
 deploy: build
-	rsync -aH --delete _site/ $(HOME)/www/tmp/testpub/
+	rsync -aH --delete _site/ /home/nickie/www/tmp/testpub/
 
 hook: deploy distclean
 
