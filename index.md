@@ -1,8 +1,5 @@
 ---
 title: Automatically generated list of publications
 ---
-# Hello world!
 
-... as was written in [@ps12] and [@sst12].
-
-## References
+Each time you `git push`, the list below is updated.
