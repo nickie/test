@@ -1,14 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
-
 module Main where
 
-import Data.Monoid         ((<>))
-import Data.List           (isSuffixOf)
-import Data.Time.Format    (formatTime)
-import Data.Time.LocalTime (getZonedTime)
-import System.Locale       (defaultTimeLocale)
+import           Data.List           (isSuffixOf)
+import           Data.Monoid         ((<>))
+import           Data.Time.Format    (formatTime)
+import           Data.Time.LocalTime (getZonedTime)
+import           System.Locale       (defaultTimeLocale)
 
-import Hakyll
+import           Hakyll
 
 main :: IO ()
 main = do
