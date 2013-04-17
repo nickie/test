@@ -1,8 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
-import           Data.List           (isSuffixOf)
-import           Data.Monoid         ((<>))
+import           Data.Function       (on)
+import           Data.List           (groupBy, isSuffixOf, sortBy)
+import qualified Data.Map            as M
+import           Data.Maybe          (fromMaybe)
+import           Data.Monoid         (mconcat, (<>))
+import           Data.Ord            (comparing)
 import           Data.Time.Format    (formatTime)
 import           Data.Time.LocalTime (getZonedTime)
 import           System.Locale       (defaultTimeLocale)
@@ -29,7 +33,7 @@ main = do
             compile compressCssCompiler
 
         -- Render publications
-        match "pub/*/*.md" $ do
+        match "pub/*.md" $ do
             route $ setExtension "html"
             compile pandocCompiler
 
@@ -37,11 +41,14 @@ main = do
         match "index.md" $ do
             route $ setExtension "html"
             compile $ do
-                pubs12 <- genPubsPerYear "2012"
-                pubs13 <- genPubsPerYear "2013"
-                let allPubs = itemBody pubs12 <> itemBody pubs13
+                pubs <- loadAll "pub/*.md"
+                meta <- mapM (getMetadata . itemIdentifier) pubs
+                let pubsWithMeta = zip pubs meta
+                    confPubs     = getPubsByType pubsWithMeta "conference"
+                -- debugCompiler $ "----- Conference publications are = " ++ show confPubs
+                ps   <- mapM pubList confPubs
+                let allPubs = mconcat $ map itemBody ps
                 pandocCompiler
-                    -- Merge all <ul>s in index.html
                     >>= loadAndApplyTemplate "templates/index.html"
                         (constField "publications" allPubs <> defaultContext)
                     >>= loadAndApplyTemplate "templates/default.html"
@@ -49,14 +56,33 @@ main = do
                     >>= relativizeUrls
                     >>= cleanIndexUrls
 
--- | Creates a <ul> list of publications (an `Item String`) in `year`.
-genPubsPerYear :: String -> Compiler (Item String)
-genPubsPerYear year = do
-    pubs    <- loadAll $ fromGlob ("pub/" ++ year ++ "/*.md")
-    -- Create <li> items
+-- | Filters publications based on `publication` type (metadata).
+-- Returns the list of publications grouped by `year` (i.e. (Year,
+-- [Item String])).
+getPubsByType :: [(Item String, Metadata)] -> String -> [(String, [Item String])]
+getPubsByType ps pType = [ (year, is)
+                         | p <- pubsByYear
+                         , let (year, is) = (fst $ head p, map snd p)
+                         ]
+  where pubsOfType = [ (pubYear, i)
+                     | (i, m) <- ps
+                     , let pubYear = fromMetaWithDefault "Unknown year" "year" m
+                           pubType = fromMetaWithDefault "dissemination" "publication" m
+                     , pubType == pType
+                     ]
+        pubsByYear = (groupBy ((==) `on` fst) . sortBy (comparing fst)) pubsOfType
+
+-- | Looks in metadata `m` for `key` and returns the appropriate value
+-- or `def` (if not found).
+fromMetaWithDefault :: String -> String -> Metadata -> String
+fromMetaWithDefault def key m = fromMaybe def (M.lookup key m)
+
+-- | Creates a pub-list.html for the publications (`pubs`) that
+-- happened in `year`.
+pubList :: (String, [Item String]) -> Compiler (Item String)
+pubList (year, pubs) = do
     pubTmpl <- loadBody "templates/pub-item.html"
     list    <- applyTemplateList pubTmpl defaultContext pubs
-    -- Create <ul> per year
     l       <- makeItem list -- Extract an `Item a` to use below
     loadAndApplyTemplate "templates/pub-list.html"
         (constField "year" year <> constField "publications" list <> defaultContext) l

@@ -1,3 +1,7 @@
+---
+year: 2012
+publication: conference
+---
 S. Aronis, N. Papaspyrou, K. Roukounaki, K. Sagonas, Y. Tsiouris,
 and I. E. Venetis.
 [A Scalability Benchmark Suite for Erlang/OTP](http://dx.doi.org/10.1145/2364489.2364495).
