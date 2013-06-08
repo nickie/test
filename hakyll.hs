@@ -44,9 +44,14 @@ main = do
                 pubs <- loadAll "pub/*.md"
                 meta <- mapM (getMetadata . itemIdentifier) pubs
                 let pubsWithMeta = zip pubs meta
-                    confPubs     = getPubsByType pubsWithMeta "conference"
-                -- debugCompiler $ "----- Conference publications are = " ++ show confPubs
-                ps   <- mapM pubList confPubs
+                    yearedPubs = [ (year, p)
+                                 | (year, _, p) <- getPubsByType pubsWithMeta "conference"]
+                    -- Group items by "year"; returns [ (Year, [Content]) ]:
+                    confPubs = [ (year, ps)
+                               | p <- (groupBy ((==) `on` fst) . sortBy (comparing fst)) yearedPubs
+                               , let (year, ps) = (fst $ head p, map snd p)]
+                --debugCompiler $ "----- Conference publications are = " ++ show confPubs
+                ps   <- mapM (pubList "year") confPubs
                 let allPubs = mconcat $ map itemBody ps
                 pandocCompiler
                     >>= loadAndApplyTemplate "templates/index.html"
@@ -57,35 +62,32 @@ main = do
                     >>= cleanIndexUrls
 
 -- | Filters publications based on `publication` type (metadata).
--- Returns the list of publications grouped by `year` (i.e. (Year,
--- [Item String])).
-getPubsByType :: [(Item String, Metadata)] -> String -> [(String, [Item String])]
-getPubsByType ps pType = [ (year, is)
-                         | p <- pubsByYear
-                         , let (year, is) = (fst $ head p, map snd p)
-                         ]
-  where pubsOfType = [ (pubYear, i)
-                     | (i, m) <- ps
-                     , let pubYear = fromMetaWithDefault "Unknown year" "year" m
-                           pubType = fromMetaWithDefault "dissemination" "publication" m
-                     , pubType == pType
-                     ]
-        pubsByYear = (groupBy ((==) `on` fst) . sortBy (comparing fst)) pubsOfType
+getPubsByType :: [(Item String, Metadata)]
+              -> String                          -- publication type
+              -> [(String, String, Item String)] -- (Year, Month, Content)
+getPubsByType ps pType =
+    [ (pubYear, pubMonth, i) | (i, m) <- ps
+    , let pubYear  = fromMetaWithDefault "Unknown year" "year" m
+          pubType  = fromMetaWithDefault "dissemination" "publication" m
+          pubMonth = fromMetaWithDefault "Unknown month" "month" m
+    , pubType == pType
+    ]
 
 -- | Looks in metadata `m` for `key` and returns the appropriate value
 -- or `def` (if not found).
 fromMetaWithDefault :: String -> String -> Metadata -> String
 fromMetaWithDefault def key m = fromMaybe def (M.lookup key m)
 
--- | Creates a pub-list.html for the publications (`pubs`) that
--- happened in `year`.
-pubList :: (String, [Item String]) -> Compiler (Item String)
-pubList (year, pubs) = do
+-- | Creates a pub-list.html for the publications.
+pubList :: String                  -- const field (in template)
+        -> (String, [Item String]) -- (field value, [Content])
+        -> Compiler (Item String)
+pubList f (fVal, pubs) = do
     pubTmpl <- loadBody "templates/pub-item.html"
     list    <- applyTemplateList pubTmpl defaultContext pubs
     l       <- makeItem list -- Extract an `Item a` to use below
     loadAndApplyTemplate "templates/pub-list.html"
-        (constField "year" year <> constField "publications" list <> defaultContext) l
+        (constField f fVal <> constField "publications" list <> defaultContext) l
 
 cleanIndexUrls :: Item String -> Compiler (Item String)
 cleanIndexUrls = return . fmap (withUrls cleanAll)
