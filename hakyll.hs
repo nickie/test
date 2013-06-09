@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
+import           Data.Char           (toLower, toUpper)
 import           Data.Function       (on)
 import           Data.List           (groupBy, isSuffixOf, sortBy)
 import qualified Data.Map            as M
@@ -44,34 +45,41 @@ main = do
                 pubs <- loadAll "pub/*.md"
                 meta <- mapM (getMetadata . itemIdentifier) pubs
                 let pubsWithMeta = zip pubs meta
-                    yearedPubs = [ (year, p)
-                                 | (year, _, p) <- getPubsByType pubsWithMeta "conference"]
+                    yPubs = [ (year, p)
+                            | (year, _, p) <- getPubsByType pubsWithMeta "conference"]
                     -- Group items by "year"; returns [ (Year, [Content]) ]:
-                    confPubs = [ (year, ps)
-                               | p <- (groupBy ((==) `on` fst) . sortBy (comparing fst)) yearedPubs
-                               , let (year, ps) = (fst $ head p, map snd p)]
-                --debugCompiler $ "----- Conference publications are = " ++ show confPubs
-                ps   <- mapM (pubList "year") confPubs
+                    confPubs = groupOnFst yPubs
+                --debugCompiler $ "----- Conference publications are:\n" ++ show confPubs
+                ps <- mapM (pubList "header") confPubs
                 let allPubs = mconcat $ map itemBody ps
-                pandocCompiler
-                    >>= loadAndApplyTemplate "templates/index.html"
-                        (constField "publications" allPubs <> defaultContext)
-                    >>= loadAndApplyTemplate "templates/default.html"
-                        (constField "date" time <> defaultContext)
-                    >>= relativizeUrls
-                    >>= cleanIndexUrls
+                datedCompiler time allPubs
+
+-- | The compiler used for the Publication and the Dissemination web pages.
+datedCompiler :: String                 -- ^ time of latest modification
+              -> String                 -- ^ web-page content
+              -> Compiler (Item String)
+datedCompiler time content = do
+    pandocCompiler
+        >>= loadAndApplyTemplate "templates/index.html"
+            (constField "publications" content <> defaultContext)
+        >>= loadAndApplyTemplate "templates/default.html"
+            (constField "date" time <> defaultContext)
+        >>= relativizeUrls
+        >>= cleanIndexUrls
 
 -- | Filters publications based on `publication` type (metadata).
 getPubsByType :: [(Item String, Metadata)]
-              -> String                          -- publication type
-              -> [(String, String, Item String)] -- (Year, Month, Content)
+              -> String                          -- ^ publication type
+              -> [(String, String, Item String)] -- ^ (Year, Month, Content)
 getPubsByType ps pType =
     [ (pubYear, pubMonth, i) | (i, m) <- ps
     , let pubYear  = fromMetaWithDefault "Unknown year" "year" m
           pubType  = fromMetaWithDefault "dissemination" "publication" m
-          pubMonth = fromMetaWithDefault "Unknown month" "month" m
+          pubMonth = fmt $ fromMetaWithDefault "Unknown month" "month" m
     , pubType == pType
     ]
+  where fmt []       = []
+        fmt (c : cs) = toUpper c : map toLower cs
 
 -- | Looks in metadata `m` for `key` and returns the appropriate value
 -- or `def` (if not found).
@@ -95,3 +103,11 @@ cleanIndexUrls = return . fmap (withUrls cleanAll)
         clean url idx
             | idx `isSuffixOf` url = take (length url - length idx) url
             | otherwise            = url
+
+-- | Groups a list of tuples based on the first item.
+groupOnFst :: Ord a => [(a, b)] -> [(a, [b])]
+groupOnFst l =
+    [ (key, vs)
+    | l' <- (groupBy ((==) `on` fst) . sortBy descending) l
+    ,  let (key, vs) = (fst $ head l', map snd l')]
+  where descending = flip $ comparing fst
