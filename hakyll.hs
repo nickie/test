@@ -54,11 +54,27 @@ main = do
                 let allPubs = mconcat $ map itemBody ps
                 datedCompiler time allPubs
 
+        match "dissemination.md" $ do
+            route $ setExtension "html"
+            compile $ do
+                pubs <- loadAll "pub/*.md"
+                meta <- mapM (getMetadata . itemIdentifier) pubs
+                let pubsWithMeta = zip pubs meta
+                    ymPubs = [ (y, (m, p))
+                             | (y, m, p) <- getPubsByType pubsWithMeta "dissemination"]
+                    -- Group items first by "year" then by "month".
+                    -- Returns [ (Year, [ (Month, [Content]) ]) ]:
+                    dissPubs = [ (year, groupOnFst ms)
+                               | (year, ms) <- groupOnFst ymPubs]
+                    (years, monthedPubs) = unzip dissPubs
+                allPubs <- yearedPubList years monthedPubs []
+                datedCompiler time (itemBody allPubs)
+
 -- | The compiler used for the Publication and the Dissemination web pages.
 datedCompiler :: String                 -- ^ time of latest modification
               -> String                 -- ^ web-page content
               -> Compiler (Item String)
-datedCompiler time content = do
+datedCompiler time content =
     pandocCompiler
         >>= loadAndApplyTemplate "templates/index.html"
             (constField "publications" content <> defaultContext)
@@ -96,6 +112,24 @@ pubList f (fVal, pubs) = do
     l       <- makeItem list -- Extract an `Item a` to use below
     loadAndApplyTemplate "templates/pub-list.html"
         (constField f fVal <> constField "publications" list <> defaultContext) l
+
+-- | Creates a year-list.html for the Dissemination page using `pubList`.
+yearedPubList :: [String]                    -- ^ years
+              -> [[(String, [Item String])]] -- ^ [(Month, [Content])]
+              -> String                      -- ^ accumulator
+              -> Compiler (Item String)
+yearedPubList [] _ acc = makeItem acc
+yearedPubList _ [] _   = undefined -- should never match because:
+                                   -- length ys == length ms
+yearedPubList (y : ys) (m : ms) acc = do
+    monthedPubs <- mapM (pubList "header") m
+    let ps = mconcat $ map itemBody monthedPubs
+    ps' <- makeItem ps
+    yearedPubs <- mapM (compileWithYears ps) [ps']
+    yearedPubList ys ms (acc ++ concatMap itemBody yearedPubs)
+  where compileWithYears pubs =
+            loadAndApplyTemplate "templates/year-list.html"
+            (constField "header" y <> constField "publications" pubs <> defaultContext)
 
 cleanIndexUrls :: Item String -> Compiler (Item String)
 cleanIndexUrls = return . fmap (withUrls cleanAll)
